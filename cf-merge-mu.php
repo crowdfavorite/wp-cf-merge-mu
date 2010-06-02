@@ -1,8 +1,8 @@
 <?php
 /*
-Plugin Name: CF Merge Network Blog Content
+Plugin Name: CF Merge MU Blog Content
 Plugin URI: http://crowdfavorite.com
-Description: Provides 1 click buttons for importing content from a selected WordPress Network site into the current site.  Buttons are provided for importing Posts, Pages and Attachments.
+Description: Simplified functionality for merging MU blogs into 1 blog
 Version: 1.0
 Author: Crowd Favorite
 Author URI: http://crowdfavorite.com 
@@ -58,25 +58,30 @@ function cfmmu_admin_js() {
 				var _this = $(this);
 				var id = _this.attr('id').replace('cfmmu-import-posts-', '');
 				$("#cfmmu-progress-"+id).show();
-				//$(".cfmmu-import").attr('disabled', 'disabled');
+				$(".cfmmu-import").attr('disabled', 'disabled');
+				$("#cfmmu-progress-display-"+id).html("Processing posts . ");
 				cfmmu_do_batch(id, 0, 'posts');
 			});
 			$(".cfmmu-import-pages").live('click', function() {
 				var _this = $(this);
 				var id = _this.attr('id').replace('cfmmu-import-pages-', '');
 				$("#cfmmu-progress-"+id).show();
-				//$(".cfmmu-import").attr('disabled', 'disabled');
+				$(".cfmmu-import").attr('disabled', 'disabled');
+				$("#cfmmu-progress-display-"+id).html("Processing pages . ");
 				cfmmu_do_batch(id, 0, 'pages');
 			});
 			$(".cfmmu-import-attachments").live('click', function() {
 				var _this = $(this);
 				var id = _this.attr('id').replace('cfmmu-import-attachments-', '');
 				$("#cfmmu-progress-"+id).show();
-				//$(".cfmmu-import").attr('disabled', 'disabled');
+				$(".cfmmu-import").attr('disabled', 'disabled');
+				$("#cfmmu-progress-display-"+id).html("Processing attachments . ");
 				cfmmu_do_batch(id, 0, 'attachments');
 			});
 			
 			function cfmmu_do_batch(blogId, offset_amount, type) {
+				$("#cfmmu-info-"+blogId).removeClass('cfmmu-processed');
+				
 				$.post('<?php echo admin_url(); ?>', {
 					cf_action:'cfmmu_import',
 					blog_id: blogId,
@@ -86,6 +91,7 @@ function cfmmu_admin_js() {
 					if (r.status == 'finished') {
 						$("#cfmmu-progress-"+blogId).hide();
 						$("#cfmmu-info-"+blogId).addClass('cfmmu-processed');
+						$(".cfmmu-import").attr('disabled', '');
 						return;
 					}
 					else {
@@ -109,8 +115,8 @@ function cfmmu_admin_menu() {
 	if (current_user_can('manage_options')) {
 		add_submenu_page(
 			'wpmu-admin.php',
-			__('CF Merge Content', 'cfdbl')
-			, __('CF Merge Content', 'cfdbl')
+			__('CF Merge MU Blog', 'cfdbl')
+			, __('CF Merge MU Blog', 'cfdbl')
 			, 10
 			, basename(__FILE__)
 			, 'cfmmu_form'
@@ -165,17 +171,17 @@ function cfmmu_form() {
 							<?php echo untrailingslashit($blog['domain']).$blog['path']; ?>
 						</td>
 						<td>
-							<input type="button" class="button cfmmu-import-posts" id="cfmmu-import-posts-<?php echo esc_attr($blog['blog_id']); ?>" value="Import Posts" />
+							<input type="button" class="button cfmmu-import-posts cfmmu-import" id="cfmmu-import-posts-<?php echo esc_attr($blog['blog_id']); ?>" value="Import Posts" />
 						</td>
 						<td>
-							<input type="button" class="button cfmmu-import-pages" id="cfmmu-import-pages-<?php echo esc_attr($blog['blog_id']); ?>" value="Import Pages" />
+							<input type="button" class="button cfmmu-import-pages cfmmu-import" id="cfmmu-import-pages-<?php echo esc_attr($blog['blog_id']); ?>" value="Import Pages" />
 						</td>
 						<td>
-							<input type="button" class="button cfmmu-import-attachments" id="cfmmu-import-attachments-<?php echo esc_attr($blog['blog_id']); ?>" value="Import Attachments" />
+							<input type="button" class="button cfmmu-import-attachments cfmmu-import" id="cfmmu-import-attachments-<?php echo esc_attr($blog['blog_id']); ?>" value="Import Attachments" />
 						</td>
 					</tr>
 					<tr id="cfmmu-progress-<?php echo $blog['blog_id']; ?>" class="cfmmu-progress" style="display:none;">
-						<td colspan="3">
+						<td colspan="5">
 							<span class="cfmmu-progress-display" id="cfmmu-progress-display-<?php echo $blog['blog_id']; ?>">
 								Processing .
 							</span>
