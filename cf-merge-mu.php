@@ -129,7 +129,7 @@ add_action('admin_menu', 'cfmmu_admin_menu');
 // Admin Display Functions
 
 function cfmmu_form() {
-	global $current_site;
+	global $current_site, $blog_id;
 	$bloglist = get_blog_list(0,'all');
 	?>
 	<style type="text/css">
@@ -162,13 +162,14 @@ function cfmmu_form() {
 			<?php
 			if (is_array($bloglist) && !empty($bloglist)) {
 				foreach ($bloglist as $blog) {
+					if ($blog['blog_id'] == $blog_id) { continue; }
 					?>
 					<tr id="cfmmu-info-<?php echo $blog['blog_id']; ?>" class="cfmmu-info">
 						<td>
 							<?php echo $blog['blog_id']; ?>
 						</td>
 						<td>
-							<?php echo untrailingslashit($blog['domain']).$blog['path']; ?>
+							<a href="<?php echo trailingslashit(get_blogaddress_by_domain($blog['domain'], $blog['path'])).'wp-admin'; ?>"><?php echo untrailingslashit($blog['domain']).$blog['path']; ?></a>
 						</td>
 						<td>
 							<input type="button" class="button cfmmu-import-posts cfmmu-import" id="cfmmu-import-posts-<?php echo esc_attr($blog['blog_id']); ?>" value="Import Posts" />
@@ -257,6 +258,7 @@ function cfmmu_import($export_blog_id, $offset = 0, $type) {
 		}
 		
 		if (is_array($ids) && !empty($ids)) {
+			// Include all of the files needed
 			if (!class_exists('WP_Import')) {
 				define('WP_LOAD_IMPORTERS', true);
 				include_once(trailingslashit(CFMMU_DIR).'includes/wordpress.php');
@@ -268,30 +270,32 @@ function cfmmu_import($export_blog_id, $offset = 0, $type) {
 				/** WordPress Administration API */
 				require_once(ABSPATH . 'wp-admin/includes/admin.php');
 			}
-
-			// Get the XML for the exported post ids
+			
+			// Get the XML for the page IDs passed in
+			ob_start();
 			$xml = cfdbl_export($ids);
+			$content = ob_get_contents();
+			ob_end_clean();
+			unset($content);
+			
+			// Build the filename for where to push the file
+			$filename = "/tmp/cfmmu-export_".date("Y-m-d-H-i-s").'_blog-'.$export_blog_id.'-offset-'.$offset.'-'.$type.'.xml';
 
-			// Write the XML to the temp folder so we can import it later
-			$filename = "cfmmu-export_".date("Y-m-d-H-i-s").'_blog-'.$export_blog_id.'-offset-'.$offset.'-'.$type.'.xml';
-			$filepath = trailingslashit('/tmp').$filename;
-			$handle = fopen($filepath,'w+');
-			fwrite($handle, $xml);
+			// Write the XML to the file
+			$handle = fopen($filename,'w+');
+			fwrite($handle,$xml);
 			fclose($handle);
-
+			
 			$exclude_posts = array_merge($exclude_posts, $ids);
 			update_option('cfmmu_exclude_posts', $exclude_posts);
 
 			// Go back to the current blog so we can do the import
 			restore_current_blog();
-
-			// Import the content to the current blog
+			
 			ob_start();
-			$wp_import->import_file($filepath);
+			$wp_import->import_file($filename);
 			$data = ob_get_contents();
 			ob_end_clean();
-
-			// Cleanup
 			unset($data);
 			
 			if ($offset > 0) {
@@ -360,7 +364,7 @@ function cfmmu_update_users($import_blog_id, $export_blog_id) {
  * @param string $post_id | Post ID being modified
  * @return string | Modified taxonomy string with the blog name as a category
  */
-function cfmmu_export_add_category($taxonomy, $post_id) {
+function cfmmu_export_add_category($taxonomy) {
 	global $blog_id;
 	$details = get_blog_details($blog_id);
 	
@@ -368,7 +372,7 @@ function cfmmu_export_add_category($taxonomy, $post_id) {
 	$name = $details->blogname;
 	
 	$taxonomy .= "\n\t\t<category><![CDATA[$name]]></category>\n";
-	$taxonomy .= "\n\t\t<category domain\"category\" nicename\"{$slug}\"><![CDATA[$name]]></category>\n";
+	$taxonomy .= "\n\t\t<category domain=\"category\" nicename=\"{$slug}\"><![CDATA[$name]]></category>\n";
 	return $taxonomy;
 }
 add_filter('cfdbl-export-taxonomy', 'cfmmu_export_add_category', 10, 2);

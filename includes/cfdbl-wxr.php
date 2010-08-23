@@ -104,7 +104,7 @@ if(!function_exists('get_wxr_post_taxonomy')) {
 			$the_list .= "\n\t\t<category domain=\"tag\" nicename=\"{$tag->slug}\"><![CDATA[$tag_name]]></category>\n";
 		}
 	
-		return $the_list;
+		return apply_filters('cfdbl-export-taxonomy', $the_list);
 	}
 }
 
@@ -172,12 +172,6 @@ function cfdbl_export($post_ids) {
 						<pubDate>'.mysql2date('D, d M Y H:i:s +0000', get_post_time('Y-m-d H:i:s', true), false).'</pubDate>
 						<dc:creator>'.wxr_cdata($authordata->ID).'</dc:creator>
 						'.get_wxr_post_taxonomy().'
-						';
-						if ($post->post_type == 'post') {
-							$exported_posts .= apply_filters('cfdbl-export-taxonomy', '', $post->ID);
-							
-						}
-						$exported_posts .= '
 						
 						<guid isPermaLink="false">'.get_the_guid().'</guid>
 						<description></description>
