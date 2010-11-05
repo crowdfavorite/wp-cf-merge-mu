@@ -11,7 +11,7 @@ Author URI: http://crowdfavorite.com
 // Definitions
 
 // ini_set('display_errors', '1'); ini_set('error_reporting', E_ALL);
-define('CFMMU_INCREMENT', 15);
+define('CFMMU_INCREMENT', 20);
 define('CFMMU_DIR', plugin_dir_path(__FILE__));
 define('CFMMU_DIR_URL', trailingslashit(plugins_url(basename(dirname(__FILE__)))));
 
@@ -55,28 +55,34 @@ function cfmmu_admin_js() {
 	;(function($) {
 		$(function() {
 			$(".cfmmu-import-posts").live('click', function() {
-				var _this = $(this);
-				var id = _this.attr('id').replace('cfmmu-import-posts-', '');
-				$("#cfmmu-progress-"+id).show();
-				$(".cfmmu-import").attr('disabled', 'disabled');
-				$("#cfmmu-progress-display-"+id).html("Processing posts . ");
-				cfmmu_do_batch(id, 0, 'posts');
+				if (confirm('Do you have the console open so you can watch the AJAX requests?')) {
+					var _this = $(this);
+					var id = _this.attr('id').replace('cfmmu-import-posts-', '');
+					$("#cfmmu-progress-"+id).show();
+					$(".cfmmu-import").attr('disabled', 'disabled');
+					$("#cfmmu-progress-display-"+id).html("Processing posts . ");
+					cfmmu_do_batch(id, 0, 'posts');
+				}
 			});
 			$(".cfmmu-import-pages").live('click', function() {
-				var _this = $(this);
-				var id = _this.attr('id').replace('cfmmu-import-pages-', '');
-				$("#cfmmu-progress-"+id).show();
-				$(".cfmmu-import").attr('disabled', 'disabled');
-				$("#cfmmu-progress-display-"+id).html("Processing pages . ");
-				cfmmu_do_batch(id, 0, 'pages');
+				if (confirm('Do you have the console open so you can watch the AJAX requests?')) {
+					var _this = $(this);
+					var id = _this.attr('id').replace('cfmmu-import-pages-', '');
+					$("#cfmmu-progress-"+id).show();
+					$(".cfmmu-import").attr('disabled', 'disabled');
+					$("#cfmmu-progress-display-"+id).html("Processing pages . ");
+					cfmmu_do_batch(id, 0, 'pages');
+				}
 			});
 			$(".cfmmu-import-attachments").live('click', function() {
-				var _this = $(this);
-				var id = _this.attr('id').replace('cfmmu-import-attachments-', '');
-				$("#cfmmu-progress-"+id).show();
-				$(".cfmmu-import").attr('disabled', 'disabled');
-				$("#cfmmu-progress-display-"+id).html("Processing attachments . ");
-				cfmmu_do_batch(id, 0, 'attachments');
+				if (confirm('Do you have the console open so you can watch the AJAX requests?')) {
+					var _this = $(this);
+					var id = _this.attr('id').replace('cfmmu-import-attachments-', '');
+					$("#cfmmu-progress-"+id).show();
+					$(".cfmmu-import").attr('disabled', 'disabled');
+					$("#cfmmu-progress-display-"+id).html("Processing attachments . ");
+					cfmmu_do_batch(id, 0, 'attachments');
+				}
 			});
 			
 			function cfmmu_do_batch(blogId, offset_amount, type) {
@@ -228,7 +234,9 @@ function cfmmu_import($export_blog_id, $offset = 0, $type) {
 			$posts = new WP_Query(array(
 				'post_type' => 'post',
 				'showposts' => CFMMU_INCREMENT,
-				'post__not_in' => $exclude_posts
+				'orderby' => 'date',
+				'post_status' => 'publish',
+				'offset' => $offset
 			));
 			break;
 		case 'pages':
@@ -236,7 +244,8 @@ function cfmmu_import($export_blog_id, $offset = 0, $type) {
 			$posts = new WP_Query(array(
 				'post_type' => 'page',
 				'showposts' => CFMMU_INCREMENT,
-				'post__not_in' => $exclude_posts
+				'orderby' => 'date',
+				'offset' => $offset
 			));
 			break;
 		case 'attachments':
@@ -245,9 +254,15 @@ function cfmmu_import($export_blog_id, $offset = 0, $type) {
 				'post_type' => 'attachment',
 				'post_status' => 'inherit',
 				'showposts' => CFMMU_INCREMENT,
-				'post__not_in' => $exclude_posts
+				'orderby' => 'date',
+				'offset' => $offset
 			));
 			break;
+	}
+
+	// Cleanup all of the files
+	foreach (glob('/tmp/cfmmu*') as $filename) {
+		@unlink($filename);
 	}
 
 	// If we have posts to import, lets do it
@@ -303,7 +318,9 @@ function cfmmu_import($export_blog_id, $offset = 0, $type) {
 					$dots .= ' . ';
 				}
 			}
-			$next_offset = $offset+CFMMU_INCREMENT;
+			$next_offset = intval($offset);
+			$next_offset++;
+			@unlink($filename);
 			echo(json_encode(array('status' => 'Processing '.$type.' '.$dots, 'next_offset' => $next_offset, 'type' => $type)));
 			return;
 		}
@@ -312,9 +329,9 @@ function cfmmu_import($export_blog_id, $offset = 0, $type) {
 	// We are finished
 
 	// Cleanup all of the files
-	foreach (glob('/tmp/cfmmu*') as $filename) {
-		@unlink($filename);
-	}
+	// foreach (glob('/tmp/cfmmu*') as $filename) {
+	// 	@unlink($filename);
+	// }
 	
 	// Cleanup the exclude array
 	update_option('cfmmu_exclude_posts', array());
@@ -366,16 +383,37 @@ function cfmmu_update_users($import_blog_id, $export_blog_id) {
  */
 function cfmmu_export_add_category($taxonomy) {
 	global $blog_id;
+	
 	$details = get_blog_details($blog_id);
+
+	$blogname = $details->blogname;
+	$slug = sanitize_title($blogname);
+	$name = $blogname;
+
+	// Standard category setup
+	$taxonomy .= "\n\t\t<category><![CDATA[".$slug."]]></category>\n";
+	$taxonomy .= "\n\t\t<category domain=\"category\" nicename=\"{".$blogname."}\"><![CDATA[".$blogname."]]></category>\n";
 	
-	$slug = sanitize_title($details->blogname);
-	$name = $details->blogname;
-	
-	$taxonomy .= "\n\t\t<category><![CDATA[$name]]></category>\n";
-	$taxonomy .= "\n\t\t<category domain=\"category\" nicename=\"{$slug}\"><![CDATA[$name]]></category>\n";
 	return $taxonomy;
 }
 add_filter('cfdbl-export-taxonomy', 'cfmmu_export_add_category', 10, 2);
 
+function cfmmu_export_add_extra_info($extra) {
+	global $blog_id;
+	$details = get_blog_details($blog_id);
+	
+	$blogname = $details->blogname;
+	$slug = sanitize_title($blogname);
+
+	$extra .= '
+		<wp:postmeta>
+			<wp:meta_key>_cf_related_category</wp:meta_key>
+			<wp:meta_value>'.wxr_cdata($slug).'</wp:meta_value>
+		</wp:postmeta>
+	';
+	
+	return $extra;
+}
+add_filter('wxr_export_extras', 'cfmmu_export_add_extra_info');
 
 ?>

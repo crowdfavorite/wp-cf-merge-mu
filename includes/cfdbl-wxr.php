@@ -85,11 +85,12 @@ if(!function_exists('get_wxr_post_taxonomy')) {
 	function get_wxr_post_taxonomy() {
 		$categories = get_the_category();
 		$tags = get_the_tags();
-		$the_list = '';
+		$the_list = apply_filters('cfdbl-export-taxonomy', '');
 		$filter = 'rss';
 	
 		if ( !empty($categories) ) foreach ( (array) $categories as $category ) {
 			$cat_name = sanitize_term_field('name', $category->name, $category->term_id, 'category', $filter);
+			$cat_name = str_replace('/', '-', $cat_name);
 			// for backwards compatibility
 			$the_list .= "\n\t\t<category><![CDATA[$cat_name]]></category>\n";
 			// forwards compatibility: use a unique identifier for each cat to avoid clashes
@@ -99,12 +100,13 @@ if(!function_exists('get_wxr_post_taxonomy')) {
 	
 		if ( !empty($tags) ) foreach ( (array) $tags as $tag ) {
 			$tag_name = sanitize_term_field('name', $tag->name, $tag->term_id, 'post_tag', $filter);
+			$tag_name = str_replace('/', '-', $tag_name);
 			$the_list .= "\n\t\t<category domain=\"tag\"><![CDATA[$tag_name]]></category>\n";
 			// forwards compatibility as above
 			$the_list .= "\n\t\t<category domain=\"tag\" nicename=\"{$tag->slug}\"><![CDATA[$tag_name]]></category>\n";
 		}
 	
-		return apply_filters('cfdbl-export-taxonomy', $the_list);
+		return $the_list;
 	}
 }
 
@@ -189,7 +191,16 @@ function cfdbl_export($post_ids) {
 						<wp:post_type>'.$post->post_type.'</wp:post_type>
 						<wp:post_password>'.$post->post_password.'</wp:post_password>
 						
-				';
+						<wp:postmeta>
+							<wp:meta_key>_original_url</wp:meta_key>
+							<wp:meta_value>'.wxr_cdata(get_permalink()).'</wp:meta_value>
+						</wp:postmeta>
+						<wp:postmeta>
+							<wp:meta_key>_updated_url</wp:meta_key>
+							<wp:meta_value>'.wxr_cdata(apply_filters('updated_url_export', get_permalink())).'</wp:meta_value>
+						</wp:postmeta>
+						
+				'.apply_filters('wxr_export_extras', '');
 				if ($post->post_type == 'attachment') {
 					$exported_posts .= '
 						<wp:attachment_url>'.wp_get_attachment_url($post->ID).'</wp:attachment_url>
